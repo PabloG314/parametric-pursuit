@@ -470,6 +470,70 @@
     display: block;
     flex: 1;
   }
+
+  #touchControls { display: none; }
+
+  @media (max-width: 768px) {
+    .game-layout { padding: 10px; gap: 10px; }
+
+    .canvases-row { flex-direction: column; }
+    .side-graph-wrap { display: none; }
+    #gameCanvas { width: 100%; height: auto; }
+
+    .curve-selector { flex-wrap: wrap; }
+    .bottom-bar { flex-wrap: wrap; }
+    .bottom-bar .info-chip { min-width: 100px; }
+
+    .player-panels-row { flex-direction: column; }
+
+    #touchControls {
+      display: flex;
+      gap: 12px;
+    }
+    .touch-zone {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      background: var(--panel);
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      padding: 14px 10px;
+    }
+    .touch-zone.p1 { border-top: 3px solid var(--p1); }
+    .touch-zone.p2 { border-top: 3px solid var(--p2); }
+    .touch-zone-label {
+      font-family: 'Syne', sans-serif;
+      font-weight: 700;
+      font-size: 0.7rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .touch-zone.p1 .touch-zone-label { color: var(--p1); }
+    .touch-zone.p2 .touch-zone-label { color: var(--p2); }
+    .touch-btns { display: flex; gap: 14px; }
+    .touch-btn {
+      width: 68px;
+      height: 68px;
+      background: #1a1a28;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      color: var(--text);
+      font-size: 1.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      touch-action: none;
+      user-select: none;
+      box-shadow: 0 4px 0 #08080f;
+      transition: transform 0.08s, box-shadow 0.08s;
+    }
+    .touch-btn.active { transform: translateY(3px); box-shadow: 0 1px 0 #08080f; }
+    .touch-zone.p1 .touch-btn.active { background: var(--p1); color: #000; border-color: var(--p1); }
+    .touch-zone.p2 .touch-btn.active { background: var(--p2); border-color: var(--p2); }
+  }
 </style>
 </head>
 <body>
@@ -530,6 +594,23 @@
       <div class="side-graph-wrap p2">
         <div class="side-graph-label"><b style="color:var(--p2)">Player 2</b>y(t)</div>
         <canvas id="graphP2" width="600" height="500"></canvas>
+      </div>
+    </div>
+
+    <div id="touchControls">
+      <div class="touch-zone p1">
+        <span class="touch-zone-label">Player 1</span>
+        <div class="touch-btns">
+          <button class="touch-btn" id="btnLeft">&#9664;</button>
+          <button class="touch-btn" id="btnRight">&#9654;</button>
+        </div>
+      </div>
+      <div class="touch-zone p2">
+        <span class="touch-zone-label">Player 2</span>
+        <div class="touch-btns">
+          <button class="touch-btn" id="btnUp">&#9650;</button>
+          <button class="touch-btn" id="btnDown">&#9660;</button>
+        </div>
       </div>
     </div>
 
@@ -1397,6 +1478,22 @@ function levelComplete() {
   }, 1000);
 }
 
+
+// Touch controls (mobile)
+[
+  { id: 'btnLeft',  key: 'a' },
+  { id: 'btnRight', key: 'd' },
+  { id: 'btnUp',    key: 'ArrowUp' },
+  { id: 'btnDown',  key: 'ArrowDown' },
+].forEach(({ id, key }) => {
+  const btn = document.getElementById(id);
+  const press = e => { e.preventDefault(); keys[key] = true;  btn.classList.add('active');    updateKeyVisuals(); };
+  const release = e => {                   keys[key] = false; btn.classList.remove('active'); updateKeyVisuals(); };
+  btn.addEventListener('pointerdown',   press);
+  btn.addEventListener('pointerup',     release);
+  btn.addEventListener('pointercancel', release);
+  btn.addEventListener('pointerleave',  release);
+});
 
 // Toast notifications
 let toastTimer;
