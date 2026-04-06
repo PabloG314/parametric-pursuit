@@ -1,0 +1,1396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Parametric Pursuit</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.11.0/math.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;700;800&display=swap');
+
+  :root {
+    --bg: #0a0a0f;
+    --panel: #111118;
+    --border: #2a2a3a;
+    --p1: #00e5ff;
+    --p2: #ff3d6b;
+    --curve: #7c5cfc;
+    --point: #f0f060;
+    --text: #e8e8f0;
+    --dim: #5a5a7a;
+    --success: #00ff88;
+    --grid: rgba(255,255,255,0.04);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Space Mono', monospace;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    overflow-x: hidden;
+  }
+
+  header {
+    width: 100%;
+    padding: 18px 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+    background: var(--panel);
+  }
+
+  .logo {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 1.4rem;
+    letter-spacing: -0.02em;
+  }
+  .logo span { color: var(--curve); }
+
+  .equation-display {
+    font-size: 0.75rem;
+    color: var(--dim);
+    text-align: center;
+    line-height: 1.8;
+  }
+  .equation-display b { color: var(--text); }
+  #eqAnswer {
+    font-size: 0.65rem;
+    color: var(--success);
+    display: none;
+  }
+  #eqAnswer b { color: var(--success); }
+
+  .level-badge {
+    font-size: 0.7rem;
+    padding: 4px 12px;
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    color: var(--dim);
+  }
+
+  .game-layout {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    padding: 24px;
+    width: 100%;
+  }
+
+  .player-panels-row {
+    display: flex;
+    gap: 20px;
+  }
+
+  /* PLAYER PANELS */
+  .player-panel {
+    flex: 1;
+    background: var(--panel);
+    border-radius: 12px;
+    padding: 20px 16px;
+    border: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .player-panel.p1 { border-top: 3px solid var(--p1); }
+  .player-panel.p2 { border-top: 3px solid var(--p2); }
+
+  .player-name {
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 0.85rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .p1 .player-name { color: var(--p1); }
+  .p2 .player-name { color: var(--p2); }
+
+  .player-role {
+    font-size: 0.65rem;
+    color: var(--dim);
+    line-height: 1.5;
+  }
+  .player-role b { color: var(--text); }
+
+  .keys-display {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    align-items: center;
+  }
+
+  .key-row {
+    display: flex;
+    gap: 6px;
+  }
+
+  .key {
+    width: 36px;
+    height: 36px;
+    background: #1a1a28;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.65rem;
+    font-weight: 700;
+    color: var(--dim);
+    transition: all 0.1s;
+    box-shadow: 0 3px 0 #08080f;
+  }
+
+  .key.active {
+    transform: translateY(2px);
+    box-shadow: 0 1px 0 #08080f;
+  }
+
+  .p1 .key.active { background: var(--p1); color: #000; border-color: var(--p1); }
+  .p2 .key.active { background: var(--p2); color: #fff; border-color: var(--p2); }
+
+  .score-section { border-top: 1px solid var(--border); padding-top: 12px; }
+  .score-label { font-size: 0.6rem; color: var(--dim); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.1em; }
+  .score-value {
+    font-family: 'Syne', sans-serif;
+    font-size: 2rem;
+    font-weight: 800;
+    line-height: 1;
+  }
+  .p1 .score-value { color: var(--p1); }
+  .p2 .score-value { color: var(--p2); }
+
+  .contribution-bar {
+    height: 4px;
+    background: #1a1a28;
+    border-radius: 2px;
+    overflow: hidden;
+    margin-top: 8px;
+  }
+  .contribution-fill {
+    height: 100%;
+    border-radius: 2px;
+  }
+  .p1 .contribution-fill { background: var(--p1); }
+  .p2 .contribution-fill { background: var(--p2); }
+
+  .contrib-label { font-size: 0.6rem; color: var(--dim); margin-top: 4px; }
+
+  /* MAIN CANVAS AREA */
+  .canvas-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .canvas-wrapper {
+    position: relative;
+    background: var(--panel);
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    overflow: hidden;
+  }
+
+  canvas {
+    display: block;
+    width: 100%;
+  }
+
+  .canvas-overlay {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    pointer-events: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .start-screen, .level-clear-screen {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    text-align: center;
+    padding: 32px;
+  }
+
+  .overlay-title {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 2.2rem;
+    letter-spacing: -0.02em;
+  }
+
+  .overlay-sub {
+    font-size: 0.75rem;
+    color: var(--dim);
+    line-height: 1.7;
+    max-width: 340px;
+  }
+
+  .start-btn {
+    pointer-events: all;
+    background: var(--curve);
+    color: #fff;
+    border: none;
+    padding: 12px 32px;
+    border-radius: 8px;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.85rem;
+    font-weight: 700;
+    cursor: pointer;
+    letter-spacing: 0.05em;
+    transition: opacity 0.15s, transform 0.15s;
+  }
+  .start-btn:hover { opacity: 0.85; transform: translateY(-1px); }
+
+  /* BOTTOM BAR */
+  .bottom-bar {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+
+  .submit-btn {
+    background: var(--curve);
+    color: #fff;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.75rem;
+    font-weight: 700;
+    cursor: pointer;
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+    opacity: 0.4;
+    pointer-events: none;
+    transition: opacity 0.15s;
+  }
+  .submit-btn.active {
+    opacity: 1;
+    pointer-events: all;
+  }
+  .submit-btn.active:hover { opacity: 0.85; }
+
+  .info-chip {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 14px;
+    font-size: 0.65rem;
+    color: var(--dim);
+    flex: 1;
+    text-align: center;
+  }
+  .info-chip b { color: var(--text); display: block; font-size: 0.8rem; margin-bottom: 2px; }
+
+  .progress-wrap {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 16px;
+    flex: 2;
+  }
+  .progress-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.6rem;
+    color: var(--dim);
+    margin-bottom: 6px;
+  }
+  .progress-track {
+    height: 6px;
+    background: #1a1a28;
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--curve), var(--p1));
+    border-radius: 3px;
+    transition: width 0.2s;
+  }
+
+  /* CURVE SELECTOR */
+  .curve-selector {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 4px;
+  }
+  .curve-btn {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    color: var(--dim);
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.65rem;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .curve-btn:hover, .curve-btn.active {
+    border-color: var(--curve);
+    color: var(--curve);
+    background: rgba(124,92,252,0.1);
+  }
+
+  .mode-btn {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    color: var(--dim);
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.65rem;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .mode-btn:hover, .mode-btn.active {
+    border-color: var(--point);
+    color: var(--point);
+    background: rgba(240,240,96,0.08);
+  }
+  .mode-btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+    pointer-events: none;
+  }
+
+
+  .feedback-toast {
+    position: fixed;
+    top: 80px;
+    left: 50%;
+    transform: translateX(-50%) translateY(-10px);
+    background: var(--success);
+    color: #000;
+    font-weight: 700;
+    padding: 10px 24px;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    opacity: 0;
+    transition: opacity 0.3s, transform 0.3s;
+    pointer-events: none;
+    z-index: 100;
+    font-family: 'Space Mono', monospace;
+  }
+  .feedback-toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+  .feedback-toast.miss {
+    background: var(--p2);
+    color: #fff;
+  }
+
+  /* MATH MODE */
+  .math-input { display: none; flex-direction: column; gap: 6px; }
+  .game-layout.math-mode .keys-display { display: none; }
+  .game-layout.math-mode .player-role { display: none; }
+  .game-layout.math-mode .math-input { display: flex; }
+  #plotBtn { display: none; }
+  .game-layout.math-mode #plotBtn { display: inline-block; }
+
+  .eq-label {
+    font-size: 0.65rem;
+    color: var(--dim);
+    letter-spacing: 0.05em;
+  }
+  .eq-input {
+    background: #0d0d14;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-family: 'Space Mono', monospace;
+    font-size: 0.75rem;
+    padding: 8px 10px;
+    width: 100%;
+    box-sizing: border-box;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .eq-input:focus { border-color: var(--curve); }
+  .p1 .eq-input:focus { border-color: var(--p1); }
+  .p2 .eq-input:focus { border-color: var(--p2); }
+  .eq-hint {
+    font-size: 0.55rem;
+    color: var(--dim);
+    opacity: 0.7;
+    line-height: 1.5;
+  }
+  .eq-error { border-color: var(--p2) !important; }
+
+  /* SIDE GRAPH PANELS */
+  .canvases-row {
+    display: flex;
+    gap: 12px;
+  }
+  .canvases-row .canvas-wrapper { flex: 1; }
+  .side-graph-wrap {
+    flex: 1;
+    background: var(--panel);
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  .side-graph-wrap.p1 { border-top: 3px solid var(--p1); }
+  .side-graph-wrap.p2 { border-top: 3px solid var(--p2); }
+  .side-graph-label {
+    font-size: 0.6rem;
+    color: var(--dim);
+    letter-spacing: 0.08em;
+    text-align: center;
+    padding: 6px 8px;
+    border-bottom: 1px solid var(--border);
+  }
+  .side-graph-label b { color: var(--text); display: block; font-size: 0.75rem; }
+  .side-graph-wrap canvas {
+    width: 100%;
+    display: block;
+    flex: 1;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Parametric<span>Pursuit</span></div>
+  <div class="equation-display" id="eqDisplay">
+    <b>x(t) = cos(t)</b> &nbsp;|&nbsp; <b>y(t) = sin(t)</b>
+    <div id="eqAnswer"></div>
+  </div>
+  <div class="level-badge" id="levelBadge">Level 1</div>
+</header>
+
+<div class="game-layout">
+
+  <!-- Canvas Area -->
+  <div class="canvas-area">
+    <div class="curve-selector">
+      <button class="curve-btn active" onclick="setCurve(0)">Circle</button>
+      <button class="curve-btn" onclick="setCurve(1)">Lissajous</button>
+      <button class="curve-btn" onclick="setCurve(2)">Butterfly</button>
+      <button class="curve-btn" onclick="setCurve(3)">Rose</button>
+      <div style="margin-left:auto;display:flex;gap:6px;">
+        <button class="mode-btn active" data-mode="easy" onclick="setMode('easy')">Easy</button>
+        <button class="mode-btn" data-mode="hard" onclick="setMode('hard')">Hard</button>
+        <button class="mode-btn" data-mode="math" onclick="setMode('math')">Math</button>
+      </div>
+    </div>
+
+    <div class="canvases-row">
+      <div class="side-graph-wrap p1">
+        <div class="side-graph-label"><b style="color:var(--p1)">Player 1</b>x(t)</div>
+        <canvas id="graphP1" width="600" height="500"></canvas>
+      </div>
+
+      <div class="canvas-wrapper">
+        <canvas id="gameCanvas" width="600" height="500"></canvas>
+        <div class="canvas-overlay" id="overlay">
+          <div class="start-screen">
+            <div class="overlay-title">Parametric<br>Pursuit</div>
+            <div class="overlay-sub">
+              Two players must <b>cooperate</b> to guide the glowing point along the curve.<br><br>
+              <span style="color:var(--p1)">Player 1</span> controls X movement (A / D keys)<br>
+              <span style="color:var(--p2)">Player 2</span> controls Y movement (↑ / ↓ keys)<br><br>
+              Stay on the curve to score points!
+            </div>
+            <button class="start-btn" onclick="startGame()">Start Game</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="side-graph-wrap p2">
+        <div class="side-graph-label"><b style="color:var(--p2)">Player 2</b>y(t)</div>
+        <canvas id="graphP2" width="600" height="500"></canvas>
+      </div>
+    </div>
+
+    <div class="bottom-bar">
+      <div class="info-chip">
+        <b id="tValue">—</b>
+        curve dist
+      </div>
+      <div class="info-chip">
+        <b id="onCurveDisplay">—</b>
+        on curve?
+      </div>
+      <button class="submit-btn" id="plotBtn" style="background:var(--success);color:#000;" onclick="plotMathCurve()">Plot</button>
+      <button class="submit-btn" id="submitBtn" onclick="levelComplete()">Submit</button>
+    </div>
+  </div>
+
+
+  <!-- Player panels row -->
+  <div class="player-panels-row">
+    <div class="player-panel p1">
+      <div class="player-name">Player 1</div>
+      <div class="player-role">Controls the <b>X direction</b><br>Move the point left or right along the curve</div>
+      <div class="keys-display">
+        <div class="key-row">
+          <div class="key" id="keyA">A</div>
+          <div class="key" id="keyD">D</div>
+        </div>
+        <div style="font-size:0.6rem;color:var(--dim);margin-top:4px;">← A &nbsp; D →</div>
+      </div>
+      <div class="math-input">
+        <div class="eq-label">x(t) =</div>
+        <input class="eq-input" id="eqX" type="text" placeholder="sin(t)" spellcheck="false" autocomplete="off">
+        <div class="eq-hint">sin, cos, tan, exp, sqrt, log, pi, e, t</div>
+      </div>
+    </div>
+    <div class="player-panel p2">
+      <div class="player-name">Player 2</div>
+      <div class="player-role">Controls the <b>Y direction</b><br>Move the point up or down along the curve</div>
+      <div class="keys-display">
+        <div class="key-row">
+          <div class="key" id="keyUp">↑</div>
+        </div>
+        <div class="key-row">
+          <div class="key" id="keyDown">↓</div>
+        </div>
+        <div style="font-size:0.6rem;color:var(--dim);margin-top:4px;">Arrow keys</div>
+      </div>
+      <div class="math-input">
+        <div class="eq-label">y(t) =</div>
+        <input class="eq-input" id="eqY" type="text" placeholder="cos(t)" spellcheck="false" autocomplete="off">
+        <div class="eq-hint">sin, cos, tan, exp, sqrt, log, pi, e, t</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="feedback-toast" id="toast"></div>
+
+<script>
+// ─── CURVES ───────────────────────────────────────────────────────────────────
+const CURVES = [
+  {
+    name: "Circle",
+    eq: "x(t) = cos(t) &nbsp;|&nbsp; y(t) = sin(t)",
+    x: t => Math.cos(t),
+    y: t => Math.sin(t),
+    tMin: 0, tMax: Math.PI * 2
+  },
+  {
+    name: "Lissajous",
+    eq: "x(t) = sin(2t) &nbsp;|&nbsp; y(t) = sin(t)",
+    x: t => Math.sin(2 * t),
+    y: t => Math.sin(t),
+    tMin: -0.3, tMax: Math.PI + 0.3
+  },
+  {
+    name: "Butterfly",
+    eq: "x(t) = sin(t)·e^cos(t) &nbsp;|&nbsp; y(t) = cos(t)·e^sin(t)",
+    x: t => Math.sin(t) * Math.exp(Math.cos(t)) * 0.5,
+    y: t => Math.cos(t) * Math.exp(Math.sin(t)) * 0.5,
+    tMin: 0, tMax: Math.PI * 4
+  },
+  {
+    name: "Rose (k=3)",
+    eq: "x(t) = cos(3t)·cos(t) &nbsp;|&nbsp; y(t) = cos(3t)·sin(t)",
+    x: t => Math.cos(3 * t) * Math.cos(t),
+    y: t => Math.cos(3 * t) * Math.sin(t),
+    tMin: 0, tMax: Math.PI
+  }
+];
+
+let curCurveIdx = 0;
+let curve = CURVES[0];
+
+// ─── MATH MODE TEMPLATES ──────────────────────────────────────────────────────
+function randInt(min, max) {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+const MATH_TEMPLATES = [
+  {
+    eqDisplay: "x(t) = A·cos(t) &nbsp;|&nbsp; y(t) = A·sin(t)",
+    genParams: () => ({ A: randInt(1, 5) }),
+    makeX: p => t => p.A * Math.cos(t),
+    makeY: p => t => p.A * Math.sin(t),
+    tMin: 0, tMax: Math.PI * 2
+  },
+  {
+    eqDisplay: "x(t) = sin(At) &nbsp;|&nbsp; y(t) = sin(Bt)",
+    genParams: () => ({ A: randInt(1, 5), B: randInt(1, 5) }),
+    makeX: p => t => Math.sin(p.A * t),
+    makeY: p => t => Math.sin(p.B * t),
+    tMin: 0, tMax: Math.PI * 2
+  },
+  {
+    eqDisplay: "x(t) = A·sin(t)·e^cos(t) &nbsp;|&nbsp; y(t) = A·cos(t)·e^sin(t)",
+    genParams: () => ({ A: randInt(1, 3) }),
+    makeX: p => t => p.A * Math.sin(t) * Math.exp(Math.cos(t)) * 0.5,
+    makeY: p => t => p.A * Math.cos(t) * Math.exp(Math.sin(t)) * 0.5,
+    tMin: 0, tMax: Math.PI * 4
+  },
+  {
+    eqDisplay: "x(t) = cos(kt)·cos(t) &nbsp;|&nbsp; y(t) = cos(kt)·sin(t)",
+    genParams: () => ({ k: randInt(1, 5) }),
+    makeX: p => t => Math.cos(p.k * t) * Math.cos(t),
+    makeY: p => t => Math.cos(p.k * t) * Math.sin(t),
+    tMin: 0, tMax: Math.PI * 2
+  }
+];
+
+let currentMathParams = null;
+let currentMathTemplate = null;
+
+function resolveTemplate(tmpl, params) {
+  let str = tmpl.eqDisplay;
+  for (const [key, val] of Object.entries(params)) {
+    str = str.replaceAll(key, val);
+  }
+  return str;
+}
+
+function setupMathModeCurve() {
+  const tmpl = MATH_TEMPLATES[curCurveIdx];
+  const p = tmpl.genParams();
+  currentMathParams = p;
+  currentMathTemplate = tmpl;
+  const xFn = tmpl.makeX(p);
+  const yFn = tmpl.makeY(p);
+
+  // Sample to find amplitude, then set drawScale for a snug fit
+  const SAMP = 400;
+  const tRange = tmpl.tMax - tmpl.tMin;
+  let maxVal = 0;
+  for (let i = 0; i <= SAMP; i++) {
+    const t = tmpl.tMin + (i / SAMP) * tRange;
+    maxVal = Math.max(maxVal, Math.abs(xFn(t)), Math.abs(yFn(t)));
+  }
+  drawScale = maxVal > 0 ? (SCALE * 0.88) / maxVal : SCALE;
+
+  curve = {
+    name: CURVES[curCurveIdx].name,
+    eq: tmpl.eqDisplay,
+    x: xFn,
+    y: yFn,
+    tMin: tmpl.tMin,
+    tMax: tmpl.tMax
+  };
+  document.getElementById('eqDisplay').innerHTML = `<b>${tmpl.eqDisplay}</b><div id="eqAnswer"></div>`;
+}
+
+function setCurve(idx) {
+  curCurveIdx = idx;
+  curve = CURVES[idx];
+  document.querySelectorAll('.curve-btn').forEach((b, i) => b.classList.toggle('active', i === idx));
+  if (mathMode) {
+    setupMathModeCurve();
+  } else {
+    document.getElementById('eqDisplay').innerHTML = `<b>${curve.eq}</b>`;
+  }
+  if (gameRunning) {
+    resetRound();
+    draw();
+  } else {
+    // Post-submission: clicking a curve restarts on that curve
+    const overlay = document.getElementById('overlay');
+    if (overlay.style.display !== 'none' && overlay.querySelector('.level-clear-screen')) {
+      overlay.style.display = 'none';
+      gameRunning = true;
+      lastTime = null;
+      lockMode();
+      resetRound();
+      if (mathMode) {
+        plotBtn.classList.add('active');
+      } else {
+        submitBtn.classList.add('active');
+        loop();
+      }
+    }
+  }
+}
+
+// ─── CANVAS SETUP ─────────────────────────────────────────────────────────────
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const W = canvas.width, H = canvas.height;
+const CX = W / 2, CY = H / 2;
+const SCALE = 190;
+let drawScale = SCALE;
+
+function toScreen(nx, ny) {
+  return { sx: CX + nx * drawScale, sy: CY - ny * drawScale };
+}
+
+// ─── GRAPH CANVASES ───────────────────────────────────────────────────────────
+const graphP1 = document.getElementById('graphP1');
+const graphP2 = document.getElementById('graphP2');
+const gctx1 = graphP1.getContext('2d');
+const gctx2 = graphP2.getContext('2d');
+
+// ─── GAME STATE ───────────────────────────────────────────────────────────────
+let gameRunning = false;
+let playerX = 0;      // player-controlled world x
+let playerY = 0;      // player-controlled world y
+let level = 1;
+let frameId;
+let totalPoints = 0, onCurveCount = 0;
+let lastOnCurve = false;
+let comboCount = 0;
+let trailPoints = [];
+let coverage = [];    // boolean array tracking which curve segments have been visited
+let nearestPt = null; // nearest point on curve to player (world coords)
+let nearestDist = 0;
+let histT = [];       // game-time of each recorded sample
+let histX = [];       // playerX at each sample
+let histY = [];       // playerY at each sample
+let gameTime = 0;     // elapsed time — only advances while a key is held
+
+// Input state
+const keys = {};
+window.addEventListener('keydown', e => {
+  keys[e.key] = true;
+  if (['ArrowUp','ArrowDown'].includes(e.key)) e.preventDefault();
+  updateKeyVisuals();
+});
+window.addEventListener('keyup', e => {
+  keys[e.key] = false;
+  updateKeyVisuals();
+});
+
+function updateKeyVisuals() {
+  document.getElementById('keyA').classList.toggle('active', !!keys['a'] || !!keys['A']);
+  document.getElementById('keyD').classList.toggle('active', !!keys['d'] || !!keys['D']);
+  document.getElementById('keyUp').classList.toggle('active', !!keys['ArrowUp']);
+  document.getElementById('keyDown').classList.toggle('active', !!keys['ArrowDown']);
+}
+
+// ─── GAME LOGIC ───────────────────────────────────────────────────────────────
+const COVERAGE_BINS = 200;
+const MOVE_SPEED = 0.005;
+const SNAP_THRESHOLD = 0.08; // how close to curve = "on curve"
+
+let hardMode = false;
+let mathMode = false;
+
+function setMode(mode) {
+  const wasMath = mathMode;
+  hardMode = mode === 'hard';
+  mathMode = mode === 'math';
+  const layout = document.querySelector('.game-layout');
+  layout.classList.toggle('hard-mode', hardMode);
+  layout.classList.toggle('math-mode', mathMode);
+  document.querySelectorAll('.mode-btn').forEach(b =>
+    b.classList.toggle('active', b.dataset.mode === mode)
+  );
+  if (mathMode && !wasMath) {
+    setupMathModeCurve();
+  } else if (!mathMode && wasMath) {
+    curve = CURVES[curCurveIdx];
+    drawScale = SCALE;
+    document.getElementById('eqDisplay').innerHTML = `<b>${curve.eq}</b>`;
+  }
+  draw();
+}
+
+const submitBtn = document.getElementById('submitBtn');
+const plotBtn   = document.getElementById('plotBtn');
+const modeBtns  = document.querySelectorAll('.mode-btn');
+const lockMode   = () => modeBtns.forEach(b => b.disabled = true);
+const unlockMode = () => modeBtns.forEach(b => b.disabled = false);
+
+// ─── MATH MODE STATE ──────────────────────────────────────────────────────────
+let mathCurveX = []; // evaluated x values of player's math curve
+let mathCurveY = []; // evaluated y values
+
+function plotMathCurve() {
+  const exprX = document.getElementById('eqX').value.trim();
+  const exprY = document.getElementById('eqY').value.trim();
+  const inX = document.getElementById('eqX');
+  const inY = document.getElementById('eqY');
+  inX.classList.remove('eq-error');
+  inY.classList.remove('eq-error');
+
+  let fnX, fnY;
+  try { fnX = math.compile(exprX); } catch(e) { inX.classList.add('eq-error'); showToast('Invalid x(t)', true); return; }
+  try { fnY = math.compile(exprY); } catch(e) { inY.classList.add('eq-error'); showToast('Invalid y(t)', true); return; }
+
+  const SAMPLES = 400;
+  const tRange = curve.tMax - curve.tMin;
+  mathCurveX = [];
+  mathCurveY = [];
+  try {
+    for (let i = 0; i <= SAMPLES; i++) {
+      const t = curve.tMin + (i / SAMPLES) * tRange;
+      const x = fnX.evaluate({ t });
+      const y = fnY.evaluate({ t });
+      mathCurveX.push(isFinite(x) ? x : 0);
+      mathCurveY.push(isFinite(y) ? y : 0);
+    }
+  } catch(e) {
+    showToast('Evaluation error', true);
+    return;
+  }
+  submitBtn.classList.add('active');
+  drawMathSideGraphs();
+}
+
+function drawMathSideGraphs() {
+  [[gctx1, mathCurveX, '#00e5ff'], [gctx2, mathCurveY, '#ff3d6b']].forEach(([gctx, data, color]) => {
+    const GW = gctx.canvas.width, GH = gctx.canvas.height;
+    gctx.clearRect(0, 0, GW, GH);
+    gctx.fillStyle = '#0d0d14';
+    gctx.fillRect(0, 0, GW, GH);
+    gctx.strokeStyle = 'rgba(255,255,255,0.08)';
+    gctx.lineWidth = 1;
+    gctx.setLineDash([3, 3]);
+    gctx.beginPath();
+    gctx.moveTo(0, GH / 2);
+    gctx.lineTo(GW, GH / 2);
+    gctx.stroke();
+    gctx.setLineDash([]);
+    if (data.length < 2) return;
+    const amp = Math.max(...data.map(Math.abs), 0.01);
+    gctx.beginPath();
+    gctx.strokeStyle = color;
+    gctx.lineWidth = 1.5;
+    for (let i = 0; i < data.length; i++) {
+      const px = (i / (data.length - 1)) * GW;
+      const py = GH / 2 - (data[i] / amp) * (GH / 2 - 2);
+      if (i === 0) gctx.moveTo(px, py); else gctx.lineTo(px, py);
+    }
+    gctx.stroke();
+  });
+}
+
+function computeScore() {
+  if (mathMode) {
+    if (mathCurveX.length === 0) return 0;
+    const mathCoverage = new Array(COVERAGE_BINS).fill(false);
+    let hits = 0;
+    for (let i = 0; i < mathCurveX.length; i++) {
+      const { dist, binIdx } = nearestCurvePoint(mathCurveX[i], mathCurveY[i]);
+      if (dist < SNAP_THRESHOLD) { mathCoverage[binIdx] = true; hits++; }
+    }
+    const coveragePct = (mathCoverage.filter(Boolean).length / COVERAGE_BINS) * 100;
+    const accuracyPct = (hits / mathCurveX.length) * 100;
+    return Math.round((coveragePct + accuracyPct) / 2);
+  } else {
+    const coveragePct = (coverage.filter(Boolean).length / COVERAGE_BINS) * 100;
+    const accuracyPct = totalPoints > 0 ? (onCurveCount / totalPoints) * 100 : 0;
+    return Math.round((coveragePct + accuracyPct) / 2);
+  }
+}
+
+function drawMathPlayerCurve() {
+  if (mathCurveX.length < 2) return;
+  ctx.beginPath();
+  ctx.strokeStyle = 'rgba(255,255,255,0.75)';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([]);
+  for (let i = 0; i < mathCurveX.length; i++) {
+    const { sx, sy } = toScreen(mathCurveX[i], mathCurveY[i]);
+    if (i === 0) ctx.moveTo(sx, sy); else ctx.lineTo(sx, sy);
+  }
+  ctx.stroke();
+}
+
+function startGame() {
+  document.getElementById('overlay').style.display = 'none';
+  gameRunning = true;
+  lockMode();
+  if (mathMode) setupMathModeCurve();
+  resetRound();
+  if (mathMode) {
+    plotBtn.classList.add('active');
+    draw();
+  } else {
+    submitBtn.classList.add('active');
+    loop();
+  }
+}
+
+function resetRound() {
+  playerX = curve.x(curve.tMin);
+  playerY = curve.y(curve.tMin);
+  mathCurveX = [];
+  mathCurveY = [];
+  totalPoints = 0;
+  onCurveCount = 0;
+  lastOnCurve = false;
+  comboCount = 0;
+  trailPoints = [];
+  coverage = new Array(COVERAGE_BINS).fill(false);
+  nearestPt = null;
+  nearestDist = 0;
+  histT = [];
+  histX = [];
+  histY = [];
+  gameTime = 0;
+  // Reset UI
+  elDist.textContent = '—';
+  elOnCurve.textContent = '—';
+  elOnCurve.style.color = '';
+}
+
+// Returns the closest point on the curve to (px, py)
+function nearestCurvePoint(px, py) {
+  const SAMPLES = 300;
+  const tRange = curve.tMax - curve.tMin;
+  let minDist = Infinity, cx = 0, cy = 0, binIdx = 0;
+  for (let i = 0; i < SAMPLES; i++) {
+    const ti = curve.tMin + (i / SAMPLES) * tRange;
+    const qx = curve.x(ti), qy = curve.y(ti);
+    const d = Math.sqrt((px - qx) ** 2 + (py - qy) ** 2);
+    if (d < minDist) {
+      minDist = d;
+      cx = qx; cy = qy;
+      binIdx = Math.floor((i / SAMPLES) * COVERAGE_BINS);
+    }
+  }
+  return { dist: minDist, cx, cy, binIdx };
+}
+
+let lastTime = null;
+
+function loop(ts) {
+  if (!gameRunning) return;
+  frameId = requestAnimationFrame(loop);
+
+  // dt in seconds, capped
+  const now = ts || performance.now();
+  const dt = Math.min((now - (lastTime || now)) / 1000, 0.05);
+  lastTime = now;
+
+  update(dt);
+  draw();
+}
+
+// Cached DOM refs — avoid repeated getElementById in the hot loop
+const elDist     = document.getElementById('tValue');
+const elOnCurve  = document.getElementById('onCurveDisplay');
+
+function update(dt) {
+  if (mathMode) return;
+
+  // Player moves their point
+  if (keys['a'] || keys['A']) playerX -= MOVE_SPEED;
+  if (keys['d'] || keys['D']) playerX += MOVE_SPEED;
+  if (keys['ArrowUp'])        playerY += MOVE_SPEED;
+  if (keys['ArrowDown'])      playerY -= MOVE_SPEED;
+
+  playerX = Math.max(-1.4, Math.min(1.4, playerX));
+  playerY = Math.max(-1.4, Math.min(1.4, playerY));
+
+  const anyKey = keys['a'] || keys['A'] || keys['d'] || keys['D'] || keys['ArrowUp'] || keys['ArrowDown'];
+  if (anyKey) {
+    gameTime += dt;
+    histT.push(gameTime);
+    histX.push(playerX);
+    histY.push(playerY);
+  }
+
+  // Find nearest point on curve (compare by (x,y) proximity, t irrelevant)
+  const { dist, cx, cy, binIdx } = nearestCurvePoint(playerX, playerY);
+  nearestPt = { x: cx, y: cy };
+  nearestDist = dist;
+  const onCurve = dist < SNAP_THRESHOLD;
+
+  // Mark coverage
+  if (onCurve) coverage[binIdx] = true;
+
+  const coveredBins = coverage.filter(Boolean).length;
+  const coverageFrac = coveredBins / COVERAGE_BINS;
+
+  totalPoints++;
+  if (onCurve) {
+    onCurveCount++;
+    comboCount++;
+    if (!lastOnCurve) showToast("On curve!", false);
+  } else {
+    comboCount = 0;
+    if (lastOnCurve) showToast("Off curve!", true);
+  }
+  lastOnCurve = onCurve;
+
+  // Trail
+  trailPoints.push({ x: playerX, y: playerY, on: onCurve, age: 0 });
+  if (trailPoints.length > 60) trailPoints.shift();
+  trailPoints.forEach(p => p.age++);
+
+  // Update UI — only write to DOM when value changes to avoid layout churn
+  const distStr = dist.toFixed(2);
+  if (elDist.textContent !== distStr) elDist.textContent = distStr;
+
+  const onStr = onCurve ? '✓ YES' : '✗ NO';
+  if (elOnCurve.textContent !== onStr) {
+    elOnCurve.textContent = onStr;
+    elOnCurve.style.color = onCurve ? 'var(--success)' : 'var(--p2)';
+  }
+
+}
+
+function drawPlayerGraph(gctx, tArr, data, color) {
+  const GW = gctx.canvas.width, GH = gctx.canvas.height;
+  gctx.clearRect(0, 0, GW, GH);
+
+  // Background
+  gctx.fillStyle = '#0d0d14';
+  gctx.fillRect(0, 0, GW, GH);
+
+  // Zero line
+  gctx.strokeStyle = 'rgba(255,255,255,0.08)';
+  gctx.lineWidth = 1;
+  gctx.setLineDash([3, 3]);
+  gctx.beginPath();
+  gctx.moveTo(0, GH / 2);
+  gctx.lineTo(GW, GH / 2);
+  gctx.stroke();
+  gctx.setLineDash([]);
+
+  if (data.length < 2 || gameTime === 0) return;
+
+  // t=0 fixed at left pixel, current gameTime at right pixel
+  const maxT = gameTime;
+
+  // Subsample for performance if history is long
+  const MAX_DRAW = 400;
+  const step = data.length > MAX_DRAW ? Math.ceil(data.length / MAX_DRAW) : 1;
+
+  gctx.beginPath();
+  gctx.strokeStyle = color;
+  gctx.lineWidth = 1.5;
+  const valToY = v => GH / 2 - (v / 1.4) * (GH / 2 - 2);
+
+  let first = true;
+  for (let i = 0; i < data.length; i += step) {
+    const px = (tArr[i] / maxT) * GW;
+    const py = valToY(data[i]);
+    if (first) { gctx.moveTo(px, py); first = false; }
+    else gctx.lineTo(px, py);
+  }
+  gctx.stroke();
+
+  // Dot at the current head
+  const lastVal = data[data.length - 1];
+  const edgeX = (tArr[tArr.length - 1] / maxT) * GW;
+  const edgeY = valToY(lastVal);
+  gctx.beginPath();
+  gctx.arc(edgeX, edgeY, 2.5, 0, Math.PI * 2);
+  gctx.fillStyle = color;
+  gctx.fill();
+}
+
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+
+  drawGrid();
+  drawCurve();
+
+  if (hardMode) {
+    const { sx, sy } = toScreen(curve.x(curve.tMin), curve.y(curve.tMin));
+    ctx.beginPath();
+    ctx.arc(sx, sy, 5, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255,255,255,0.25)';
+    ctx.fill();
+  }
+
+  if (!mathMode && !hardMode) {
+    drawTrail();
+
+    const ps = toScreen(playerX, playerY);
+    if (nearestPt) {
+      const ns = toScreen(nearestPt.x, nearestPt.y);
+      drawNearestMarker(ns.sx, ns.sy);
+      drawGuideLines(ns, ps);
+    }
+    drawPlayerPoint(ps.sx, ps.sy);
+  }
+
+  drawAxisLabels();
+
+  drawPlayerGraph(gctx1, histT, histX, '#00e5ff');
+  drawPlayerGraph(gctx2, histT, histY, '#ff3d6b');
+}
+
+function drawGrid() {
+  ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+  ctx.lineWidth = 1;
+  for (let i = -3; i <= 3; i++) {
+    const { sx } = toScreen(i * 0.5, 0);
+    const { sy } = toScreen(0, i * 0.5);
+    ctx.beginPath(); ctx.moveTo(sx, 0); ctx.lineTo(sx, H); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, sy); ctx.lineTo(W, sy); ctx.stroke();
+  }
+  // Axes
+  ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(0, CY); ctx.lineTo(W, CY); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(CX, 0); ctx.lineTo(CX, H); ctx.stroke();
+}
+
+function drawCurve() {
+  const steps = 400;
+  const tRange = curve.tMax - curve.tMin;
+
+  // Full curve (dim)
+  ctx.beginPath();
+  for (let i = 0; i <= steps; i++) {
+    const ti = curve.tMin + (i / steps) * tRange;
+    const { sx, sy } = toScreen(curve.x(ti), curve.y(ti));
+    if (i === 0) ctx.moveTo(sx, sy);
+    else ctx.lineTo(sx, sy);
+  }
+  ctx.strokeStyle = 'rgba(124,92,252,0.35)';
+  ctx.lineWidth = 2.5;
+  ctx.setLineDash([]);
+  ctx.stroke();
+
+  // Covered segments highlighted in green — hidden in hard mode
+  if (hardMode) return;
+  ctx.strokeStyle = 'rgba(0,255,136,0.85)';
+  ctx.lineWidth = 3.5;
+  let inRun = false;
+  for (let i = 0; i <= steps; i++) {
+    const binIdx = Math.min(Math.floor((i / steps) * COVERAGE_BINS), COVERAGE_BINS - 1);
+    const covered = coverage[binIdx];
+    const ti = curve.tMin + (i / steps) * tRange;
+    const { sx, sy } = toScreen(curve.x(ti), curve.y(ti));
+    if (covered && !inRun) {
+      ctx.beginPath();
+      ctx.moveTo(sx, sy);
+      inRun = true;
+    } else if (covered) {
+      ctx.lineTo(sx, sy);
+    } else if (inRun) {
+      ctx.stroke();
+      inRun = false;
+    }
+  }
+  if (inRun) ctx.stroke();
+}
+
+function drawTrail() {
+  for (const p of trailPoints) {
+    const { sx, sy } = toScreen(p.x, p.y);
+    const alpha = Math.max(0, 1 - p.age / 60) * 0.5;
+    ctx.beginPath();
+    ctx.arc(sx, sy, 3, 0, Math.PI * 2);
+    ctx.fillStyle = p.on ? `rgba(0,229,255,${alpha})` : `rgba(255,61,107,${alpha * 0.5})`;
+    ctx.fill();
+  }
+}
+
+function drawNearestMarker(sx, sy) {
+  ctx.beginPath();
+  ctx.arc(sx, sy, 5, 0, Math.PI * 2);
+  ctx.strokeStyle = 'rgba(255,255,255,0.45)';
+  ctx.lineWidth = 1.5;
+  ctx.setLineDash([]);
+  ctx.stroke();
+}
+
+function drawPlayerPoint(sx, sy) {
+  const onCurve = lastOnCurve;
+
+  // Glow
+  const grad = ctx.createRadialGradient(sx, sy, 2, sx, sy, 24);
+  grad.addColorStop(0, onCurve ? 'rgba(0,229,255,0.5)' : 'rgba(255,61,107,0.3)');
+  grad.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.beginPath();
+  ctx.arc(sx, sy, 24, 0, Math.PI * 2);
+  ctx.fillStyle = grad;
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.arc(sx, sy, 8, 0, Math.PI * 2);
+  ctx.fillStyle = onCurve ? '#00e5ff' : '#ff3d6b';
+  ctx.fill();
+
+  ctx.fillStyle = onCurve ? 'rgba(0,229,255,0.7)' : 'rgba(255,61,107,0.7)';
+  ctx.font = '700 10px Space Mono, monospace';
+  ctx.fillText('PLAYER', sx + 12, sy + 4);
+}
+
+function drawGuideLines(ts, ps) {
+  // Dashed horizontal line (X guide - P1)
+  ctx.setLineDash([4, 4]);
+  ctx.lineWidth = 1;
+  ctx.strokeStyle = 'rgba(0,229,255,0.3)';
+  ctx.beginPath();
+  ctx.moveTo(ps.sx, ps.sy);
+  ctx.lineTo(ts.sx, ps.sy);
+  ctx.stroke();
+
+  // Dashed vertical line (Y guide - P2)
+  ctx.strokeStyle = 'rgba(255,61,107,0.3)';
+  ctx.beginPath();
+  ctx.moveTo(ps.sx, ps.sy);
+  ctx.lineTo(ps.sx, ts.sy);
+  ctx.stroke();
+
+  ctx.setLineDash([]);
+}
+
+function drawAxisLabels() {
+  ctx.fillStyle = 'rgba(255,255,255,0.2)';
+  ctx.font = '10px Space Mono, monospace';
+  ctx.fillText('x', W - 14, CY - 6);
+  ctx.fillText('y', CX + 6, 14);
+
+  // Tick labels
+  [-1, -0.5, 0.5, 1].forEach(v => {
+    const { sx } = toScreen(v, 0);
+    const { sy } = toScreen(0, v);
+    ctx.fillStyle = 'rgba(255,255,255,0.15)';
+    ctx.fillText(v, sx - 6, CY + 14);
+    ctx.fillText(v, CX + 6, sy + 4);
+  });
+}
+
+function drawPlayerPath() {
+  const pathX = mathMode ? mathCurveX : histX;
+  const pathY = mathMode ? mathCurveY : histY;
+  if (pathX.length < 2) return;
+
+  const MAX_DRAW = 600;
+  const step = pathX.length > MAX_DRAW ? Math.ceil(pathX.length / MAX_DRAW) : 1;
+
+  ctx.beginPath();
+  ctx.setLineDash([]);
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.82)';
+  ctx.lineWidth = 2;
+  let first = true;
+  for (let i = 0; i < pathX.length; i += step) {
+    const { sx, sy } = toScreen(pathX[i], pathY[i]);
+    if (first) { ctx.moveTo(sx, sy); first = false; }
+    else ctx.lineTo(sx, sy);
+  }
+  ctx.stroke();
+
+  // Start dot
+  const { sx: sx0, sy: sy0 } = toScreen(pathX[0], pathY[0]);
+  ctx.beginPath();
+  ctx.arc(sx0, sy0, 4, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(255,255,255,0.9)';
+  ctx.fill();
+
+  // End dot
+  const last = pathX.length - 1;
+  const { sx: sxN, sy: syN } = toScreen(pathX[last], pathY[last]);
+  ctx.beginPath();
+  ctx.arc(sxN, syN, 4, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(255,255,255,0.9)';
+  ctx.fill();
+
+  // Legend
+  ctx.font = '700 10px Space Mono, monospace';
+  ctx.fillStyle = 'rgba(124,92,252,0.9)';
+  ctx.fillText('▬  Target curve', 12, 20);
+  ctx.fillStyle = 'rgba(0,255,136,0.9)';
+  ctx.fillText('▬  Covered', 12, 36);
+  ctx.fillStyle = 'rgba(255,255,255,0.9)';
+  ctx.fillText('▬  Your path', 12, 52);
+}
+
+function levelComplete() {
+  if (mathMode && mathCurveX.length === 0) {
+    showToast('Plot your curve first!', true);
+    return;
+  }
+  gameRunning = false;
+  unlockMode();
+  submitBtn.classList.remove('active');
+  plotBtn.classList.remove('active');
+  const score = computeScore();
+  if (mathMode && currentMathTemplate && currentMathParams) {
+    const resolved = resolveTemplate(currentMathTemplate, currentMathParams);
+    const el = document.getElementById('eqAnswer');
+    if (el) { el.innerHTML = `<b>${resolved}</b>`; el.style.display = 'block'; }
+  }
+  level++;
+  document.getElementById('levelBadge').textContent = `Level ${level}`;
+
+  // Draw result: target curve + coverage + player path (no live UI elements)
+  ctx.clearRect(0, 0, W, H);
+  drawGrid();
+  drawCurve();
+  drawAxisLabels();
+  drawPlayerPath();
+
+  const overlay = document.getElementById('overlay');
+  overlay.style.display = 'flex';
+  overlay.innerHTML = `
+    <div class="level-clear-screen" style="background:rgba(10,10,15,0.88);border-radius:12px;border:1px solid rgba(255,255,255,0.08);gap:8px;padding:20px 24px;">
+      <div class="overlay-title" style="color:var(--success);font-size:1.4rem;">Submitted!</div>
+      <div class="overlay-sub" style="font-size:0.7rem;">
+        Cooperative score<br>
+        <b style="font-size:1.5rem">${score}%</b><br>
+        ${score >= 80 ? 'Excellent!' : score >= 50 ? 'Good effort!' : 'Keep practicing!'}
+      </div>
+    </div>
+  `;
+
+  // After 1 s, shrink the card to 25% and fly it to the upper-right corner
+  // of the canvas wrapper, revealing the result graph behind it.
+  setTimeout(() => {
+    const card    = overlay.querySelector('.level-clear-screen');
+    const wrapper = document.querySelector('.canvas-wrapper');
+    const cRect   = card.getBoundingClientRect();
+    const wRect   = wrapper.getBoundingClientRect();
+
+    const SCALE  = 0.25;
+    const MARGIN = 12;
+
+    // Current card center (viewport coords)
+    const cardCX = cRect.left + cRect.width  / 2;
+    const cardCY = cRect.top  + cRect.height / 2;
+
+    // Target card center: upper-right of canvas wrapper
+    const targetCX = wRect.right  - MARGIN - (cRect.width  * SCALE) / 2;
+    const targetCY = wRect.top    + MARGIN + (cRect.height * SCALE) / 2;
+
+    card.style.transition      = 'transform 0.55s cubic-bezier(0.4, 0, 0.2, 1)';
+    card.style.transformOrigin = 'center center';
+    card.style.transform       = `translate(${targetCX - cardCX}px, ${targetCY - cardCY}px) scale(${SCALE})`;
+
+    let collapsed = true;
+    card.style.cursor = 'pointer';
+    card.style.pointerEvents = 'all';
+    card.addEventListener('click', () => {
+      if (collapsed) {
+        card.style.transform = '';
+      } else {
+        card.style.transform = `translate(${targetCX - cardCX}px, ${targetCY - cardCY}px) scale(${SCALE})`;
+      }
+      collapsed = !collapsed;
+    });
+  }, 1000);
+}
+
+
+// Toast notifications
+let toastTimer;
+function showToast(msg, isMiss) {
+  const toast = document.getElementById('toast');
+  toast.textContent = msg;
+  toast.className = 'feedback-toast show' + (isMiss ? ' miss' : '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => {
+    toast.classList.remove('show');
+  }, 1200);
+}
+
+// Initial draw
+draw();
+</script>
+
+</body>
+</html>
