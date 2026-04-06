@@ -334,6 +334,7 @@
     display: flex;
     gap: 8px;
     margin-bottom: 4px;
+    position: relative;
   }
   .curve-btn {
     background: var(--panel);
@@ -491,12 +492,18 @@
       <button class="curve-btn" onclick="setCurve(1)">Lissajous</button>
       <button class="curve-btn" onclick="setCurve(2)">Butterfly</button>
       <button class="curve-btn" onclick="setCurve(3)">Rose</button>
+      <div id="curveHint" style="display:none;align-items:center;gap:6px;white-space:nowrap;">
+        <span style="font-size:1.1rem;color:var(--success);">&#8592;</span>
+        <span style="font-family:'Space Mono',monospace;font-size:0.72rem;color:var(--success);opacity:0.9;">Select a curve to start a new game</span>
+      </div>
       <div style="margin-left:auto;display:flex;gap:6px;">
         <button class="mode-btn active" data-mode="easy" onclick="setMode('easy')">Easy</button>
         <button class="mode-btn" data-mode="hard" onclick="setMode('hard')">Hard</button>
         <button class="mode-btn" data-mode="math" onclick="setMode('math')">Math</button>
       </div>
     </div>
+
+    <div id="mathModeHint" style="display:none;font-family:'Space Mono',monospace;font-size:0.85rem;color:var(--success);text-align:center;padding:4px 0;pointer-events:none;">Enter parametric equations below.</div>
 
     <div class="canvases-row">
       <div class="side-graph-wrap p1">
@@ -696,6 +703,7 @@ function setupMathModeCurve() {
 }
 
 function setCurve(idx) {
+  document.getElementById('curveHint').style.display = 'none';
   curCurveIdx = idx;
   curve = CURVES[idx];
   document.querySelectorAll('.curve-btn').forEach((b, i) => b.classList.toggle('active', i === idx));
@@ -799,6 +807,7 @@ function setMode(mode) {
   document.querySelectorAll('.mode-btn').forEach(b =>
     b.classList.toggle('active', b.dataset.mode === mode)
   );
+  document.getElementById('mathModeHint').style.display = mathMode ? 'block' : 'none';
   if (mathMode && !wasMath) {
     setupMathModeCurve();
   } else if (!mathMode && wasMath) {
@@ -913,6 +922,7 @@ function drawMathPlayerCurve() {
 
 function startGame() {
   document.getElementById('overlay').style.display = 'none';
+  document.getElementById('mathModeHint').style.display = 'none';
   gameRunning = true;
   lockMode();
   if (mathMode) setupMathModeCurve();
@@ -1381,6 +1391,9 @@ function levelComplete() {
       }
       collapsed = !collapsed;
     });
+
+    const hint = document.getElementById('curveHint');
+    hint.style.display = 'flex';
   }, 1000);
 }
 
