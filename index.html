@@ -679,6 +679,11 @@
 
 <div class="feedback-toast" id="toast"></div>
 
+<div id="mobileWarning" style="display:none;position:fixed;bottom:0;left:0;right:0;background:#1a1a24;border-top:1px solid var(--border);padding:12px 16px;font-family:'Space Mono',monospace;font-size:0.72rem;color:var(--dim);text-align:center;z-index:1000;">
+  This game is designed for desktop and may not work well on small screens.
+  <button onclick="document.getElementById('mobileWarning').style.display='none'" style="margin-left:12px;background:none;border:1px solid var(--border);color:var(--dim);border-radius:12px;padding:3px 10px;font-family:inherit;font-size:0.7rem;cursor:pointer;">Dismiss</button>
+</div>
+
 <script>
 // ─── CURVES ───────────────────────────────────────────────────────────────────
 const CURVES = [
@@ -921,6 +926,10 @@ function setMode(mode) {
 }
 
 const submitBtn = document.getElementById('submitBtn');
+
+if (window.innerWidth < 768 || /Mobi|Android/i.test(navigator.userAgent)) {
+  document.getElementById('mobileWarning').style.display = 'block';
+}
 const plotBtn   = document.getElementById('plotBtn');
 const modeBtns  = document.querySelectorAll('.mode-btn');
 const lockMode   = () => modeBtns.forEach(b => b.disabled = true);
