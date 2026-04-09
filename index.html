@@ -527,20 +527,24 @@
       background: #1a1a28;
       border: 1px solid var(--border);
       border-radius: 10px;
-      color: var(--text);
-      font-size: 1.5rem;
       display: flex;
       align-items: center;
       justify-content: center;
       cursor: pointer;
       touch-action: none;
       user-select: none;
+      -webkit-user-select: none;
+      -webkit-tap-highlight-color: transparent;
       box-shadow: 0 4px 0 #08080f;
       transition: transform 0.08s, box-shadow 0.08s;
+      -webkit-touch-callout: none;
     }
+    .touch-btn svg { pointer-events: none; }
     .touch-btn.active { transform: translateY(3px); box-shadow: 0 1px 0 #08080f; }
-    .touch-zone.p1 .touch-btn.active { background: var(--p1); color: #000; border-color: var(--p1); }
+    .touch-zone.p1 .touch-btn.active { background: var(--p1); border-color: var(--p1); }
+    .touch-zone.p1 .touch-btn.active svg { fill: #000; }
     .touch-zone.p2 .touch-btn.active { background: var(--p2); border-color: var(--p2); }
+    .touch-zone.p2 .touch-btn.active svg { fill: #000; }
   }
 </style>
 </head>
@@ -609,15 +613,15 @@
       <div class="touch-zone p1">
         <span class="touch-zone-label">Player 1</span>
         <div class="touch-btns">
-          <button class="touch-btn" id="btnLeft">&#9664;</button>
-          <button class="touch-btn" id="btnRight">&#9654;</button>
+          <button class="touch-btn" id="btnLeft"><svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg></button>
+          <button class="touch-btn" id="btnRight"><svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg></button>
         </div>
       </div>
       <div class="touch-zone p2">
         <span class="touch-zone-label">Player 2</span>
         <div class="touch-btns">
-          <button class="touch-btn" id="btnUp">&#9650;</button>
-          <button class="touch-btn" id="btnDown">&#9660;</button>
+          <button class="touch-btn" id="btnUp"><svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor"><path d="M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6 6z"/></svg></button>
+          <button class="touch-btn" id="btnDown"><svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor"><path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6z"/></svg></button>
         </div>
       </div>
     </div>
