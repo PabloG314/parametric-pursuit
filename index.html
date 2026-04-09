@@ -75,12 +75,20 @@
   }
   #eqAnswer b { color: var(--success); }
 
-  .level-badge {
+  .home-btn {
     font-size: 0.7rem;
     padding: 4px 12px;
     border: 1px solid var(--border);
     border-radius: 20px;
     color: var(--dim);
+    background: none;
+    cursor: pointer;
+    text-decoration: none;
+    font-family: inherit;
+  }
+  .home-btn:hover {
+    border-color: var(--p1);
+    color: var(--p1);
   }
 
   .game-layout {
@@ -544,7 +552,7 @@
     <b>x(t) = cos(t)</b> &nbsp;|&nbsp; <b>y(t) = sin(t)</b>
     <div id="eqAnswer"></div>
   </div>
-  <div class="level-badge" id="levelBadge">Level 1</div>
+  <a href="https://mathedpotatoes.com" class="home-btn">mathedpotatoes.com</a>
 </header>
 
 <div class="game-layout">
@@ -754,6 +762,18 @@ function resolveTemplate(tmpl, params) {
   return str;
 }
 
+function formatT(val) {
+  const pi = Math.PI;
+  const tol = 0.0001;
+  if (Math.abs(val) < tol) return '0';
+  const fracs = [[1,1],[1,2],[1,3],[1,4],[1,6],[2,3],[3,4],[4,3],[3,2],[5,4],[5,3],[2,1],[5,2],[3,1],[7,2],[4,1]];
+  for (const [n, d] of fracs) {
+    if (Math.abs(val - n * pi / d) < tol) return d === 1 ? `${n}π` : `${n}π/${d}`;
+    if (Math.abs(val + n * pi / d) < tol) return d === 1 ? `-${n}π` : `-${n}π/${d}`;
+  }
+  return val.toFixed(2);
+}
+
 function setupMathModeCurve() {
   const tmpl = MATH_TEMPLATES[curCurveIdx];
   const p = tmpl.genParams();
@@ -780,7 +800,8 @@ function setupMathModeCurve() {
     tMin: tmpl.tMin,
     tMax: tmpl.tMax
   };
-  document.getElementById('eqDisplay').innerHTML = `<b>${tmpl.eqDisplay}</b><div id="eqAnswer"></div>`;
+  const domain = `&nbsp;&nbsp;|&nbsp;&nbsp; t ∈ [${formatT(tmpl.tMin)}, ${formatT(tmpl.tMax)}]`;
+  document.getElementById('eqDisplay').innerHTML = `<b>${tmpl.eqDisplay}${domain}</b><div id="eqAnswer"></div>`;
 }
 
 function setCurve(idx) {
@@ -972,14 +993,29 @@ function drawMathSideGraphs() {
 function computeScore() {
   if (mathMode) {
     if (mathCurveX.length === 0) return 0;
-    const mathCoverage = new Array(COVERAGE_BINS).fill(false);
+
+    // Coverage: what fraction of the target's geometric points are near the player's curve?
+    const TSAMP = COVERAGE_BINS;
+    const tRange = curve.tMax - curve.tMin;
+    let covered = 0;
+    for (let i = 0; i < TSAMP; i++) {
+      const ti = curve.tMin + (i / TSAMP) * tRange;
+      const tx = curve.x(ti), ty = curve.y(ti);
+      for (let j = 0; j < mathCurveX.length; j++) {
+        const d = Math.sqrt((mathCurveX[j] - tx) ** 2 + (mathCurveY[j] - ty) ** 2);
+        if (d < SNAP_THRESHOLD) { covered++; break; }
+      }
+    }
+    const coveragePct = (covered / TSAMP) * 100;
+
+    // Accuracy: what fraction of the player's curve points lie on the target?
     let hits = 0;
     for (let i = 0; i < mathCurveX.length; i++) {
-      const { dist, binIdx } = nearestCurvePoint(mathCurveX[i], mathCurveY[i]);
-      if (dist < SNAP_THRESHOLD) { mathCoverage[binIdx] = true; hits++; }
+      const { dist } = nearestCurvePoint(mathCurveX[i], mathCurveY[i]);
+      if (dist < SNAP_THRESHOLD) hits++;
     }
-    const coveragePct = (mathCoverage.filter(Boolean).length / COVERAGE_BINS) * 100;
     const accuracyPct = (hits / mathCurveX.length) * 100;
+
     return Math.round((coveragePct + accuracyPct) / 2);
   } else {
     const coveragePct = (coverage.filter(Boolean).length / COVERAGE_BINS) * 100;
@@ -1416,7 +1452,6 @@ function levelComplete() {
     if (el) { el.innerHTML = `<b>${resolved}</b>`; el.style.display = 'block'; }
   }
   level++;
-  document.getElementById('levelBadge').textContent = `Level ${level}`;
 
   // Draw result: target curve + coverage + player path (no live UI elements)
   ctx.clearRect(0, 0, W, H);
