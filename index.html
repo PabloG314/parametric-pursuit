@@ -827,7 +827,6 @@ function setCurve(idx) {
   }
   if (gameRunning) {
     resetRound();
-    draw();
   } else {
     // Post-submission: clicking a curve restarts on that curve
     const overlay = document.getElementById('overlay');
@@ -845,6 +844,7 @@ function setCurve(idx) {
       }
     }
   }
+  draw();
 }
 
 // ─── CANVAS SETUP ─────────────────────────────────────────────────────────────
